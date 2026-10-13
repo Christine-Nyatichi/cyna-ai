@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYNA AI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Login / Register screen -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <h1>CYNA AI</h1>
+      <p id="auth-subtitle">Log in to continue</p>
+      <input id="username" type="text" placeholder="Username" class="hidden">
+      <input id="email" type="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password">
+      <button id="auth-btn">Log in</button>
+      <p id="auth-error" class="error"></p>
+      <p class="switch">
+        <span id="switch-text">No account?</span>
+        <a href="#" id="switch-link">Register</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- Chat screen -->
+  <div id="app-screen" class="app hidden">
+    <aside class="sidebar">
+      <button id="new-chat-btn">+ New chat</button>
+      <input id="search" type="text" placeholder="Search chats">
+      <div id="conversation-list"></div>
+      <button id="doc-btn" class="logout">Documents</button>
+      <button id="task-btn" class="logout">Tasks</button>
+      <button id="memory-btn" class="logout">Memory</button>
+      <button id="logout-btn" class="logout">Log out</button>
+    </aside>
+
+    <main class="chat">
+      <header class="chat-header">
+        <span id="chat-title">New chat</span>
+        <div class="header-controls">
+          <select id="doc-select" title="Chat about a document">
+            <option value="">No document</option>
+          </select>
+          <select id="mode">
+            <option value="general">General</option>
+            <option value="study">Study</option>
+            <option value="coding">Coding</option>
+            <option value="research">Research</option>
+            <option value="writing">Writing</option>
+            <option value="data">Data Analysis</option>
+          </select>
+        </div>
+      </header>
+      <div id="messages" class="messages"></div>
+      <div class="input-bar">
+        <textarea id="message-input" rows="1" placeholder="Message CYNA..."></textarea>
+        <button id="send-btn">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Memory popup -->
+  <div id="memory-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Memory</h2>
+        <button id="memory-close" class="conv-del">×</button>
+      </div>
+      <p class="hint">CYNA uses these notes in every chat. You can also type "remember that ..." in a chat.</p>
+      <div class="memory-add">
+        <input id="memory-input" type="text" placeholder="Add something for CYNA to remember" maxlength="300">
+        <button id="memory-add-btn">Add</button>
+      </div>
+      <div id="memory-list"></div>
+      <button id="memory-clear" class="logout">Clear all</button>
+    </div>
+  </div>
+
+  <!-- Tasks popup -->
+  <div id="task-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Tasks</h2>
+        <button id="task-close" class="conv-del">×</button>
+      </div>
+      <div class="memory-add">
+        <input id="task-input" type="text" placeholder="Add a task" maxlength="200">
+        <button id="task-add-btn">Add</button>
+      </div>
+      <div id="task-list"></div>
+    </div>
+  </div>
+
+  <!-- Documents popup -->
+  <div id="doc-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Documents</h2>
+        <button id="doc-close" class="conv-del">×</button>
+      </div>
+      <p class="hint">Upload a PDF, DOCX or TXT (max 5 MB). Then pick it in the dropdown at the top of the chat and ask questions.</p>
+      <div class="memory-add">
+        <input id="doc-file" type="file" accept=".pdf,.docx,.txt">
+        <button id="doc-upload-btn">Upload</button>
+      </div>
+      <p id="doc-status" class="hint"></p>
+      <div id="doc-list"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="tasks.js"></script>
+  <script src="documents.js"></script>
+</body>
+</html>

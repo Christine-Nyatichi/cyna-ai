@@ -1,0 +1,4 @@
+cd backend
+venv\Scripts\activate
+pip freeze > requirements.txt
+cd ..
