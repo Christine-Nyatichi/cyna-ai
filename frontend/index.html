@@ -31,6 +31,7 @@
       <button id="new-chat-btn">+ New chat</button>
       <input id="search" type="text" placeholder="Search chats">
       <div id="conversation-list"></div>
+      <button id="admin-btn" class="logout hidden">Admin</button>
       <button id="doc-btn" class="logout">Documents</button>
       <button id="task-btn" class="logout">Tasks</button>
       <button id="memory-btn" class="logout">Memory</button>
@@ -111,8 +112,23 @@
     </div>
   </div>
 
+  <!-- Admin dashboard popup -->
+  <div id="admin-modal" class="modal hidden">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2>Admin dashboard</h2>
+        <div>
+          <button id="admin-refresh" class="logout">Refresh</button>
+          <button id="admin-close" class="conv-del">×</button>
+        </div>
+      </div>
+      <div id="admin-body"></div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
   <script src="tasks.js"></script>
   <script src="documents.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

@@ -15,6 +15,7 @@ from routes.chat import chat_bp
 from routes.memory import memory_bp
 from routes.tasks import tasks_bp
 from routes.documents import documents_bp
+from routes.admin import admin_bp
 
 if not os.getenv("JWT_SECRET_KEY"):
     raise RuntimeError("JWT_SECRET_KEY is missing in .env")
@@ -43,6 +44,7 @@ app.register_blueprint(chat_bp)
 app.register_blueprint(memory_bp)
 app.register_blueprint(tasks_bp)
 app.register_blueprint(documents_bp)
+app.register_blueprint(admin_bp)
 
 with app.app_context():
     db.create_all()
