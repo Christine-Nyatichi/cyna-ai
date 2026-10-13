@@ -1,14 +1,30 @@
+import re
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from extensions import db
+from extensions import db, limiter
 from models import User
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,30}$")
+
+
+def password_error(password):
+    if len(password) < 8:
+        return "password must be at least 8 characters"
+    if len(password) > 128:
+        return "password is too long (max 128 characters)"
+    if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        return "password must contain both letters and numbers"
+    return None
+
 
 @auth_bp.route("/register", methods=["POST"])
+@limiter.limit("5 per minute")
 def register():
     data = request.get_json() or {}
     username = (data.get("username") or "").strip()
@@ -17,8 +33,15 @@ def register():
 
     if not username or not email or not password:
         return jsonify({"error": "username, email and password are required"}), 400
-    if len(password) < 8:
-        return jsonify({"error": "password must be at least 8 characters"}), 400
+    if not USERNAME_RE.match(username):
+        return jsonify({"error": "username must be 3-30 characters: letters, numbers, . _ -"}), 400
+    if not EMAIL_RE.match(email) or len(email) > 120:
+        return jsonify({"error": "enter a valid email address"}), 400
+
+    problem = password_error(password)
+    if problem:
+        return jsonify({"error": problem}), 400
+
     if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify({"error": "username or email already in use"}), 409
 
@@ -33,6 +56,7 @@ def register():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
