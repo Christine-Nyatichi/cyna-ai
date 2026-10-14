@@ -83,7 +83,7 @@ Copy `.env.example` to `.env` and fill in your values:
 DATABASE_URL=mysql+pymysql://root:YOUR_PASSWORD@localhost/cyna_ai
 JWT_SECRET_KEY=a-long-random-string
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 Generate a secret key with:

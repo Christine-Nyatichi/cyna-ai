@@ -17,6 +17,10 @@ SYSTEM_PROMPTS = {
 }
 
 MAX_HISTORY = 20
+REQUEST_TIMEOUT_MS = 30000  # give up on a model that does not respond within 30 seconds
+
+# Tried in order. GEMINI_MODEL in .env goes first.
+FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash", "gemini-3.8-flash"]
 _client = None
 
 
@@ -26,13 +30,15 @@ def _get_client():
         key = os.getenv("GEMINI_API_KEY")
         if not key:
             raise AIServiceError("GEMINI_API_KEY is missing in .env")
-        _client = genai.Client(api_key=key)
+        _client = genai.Client(
+            api_key=key,
+            http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+        )
     return _client
 
 
 def _models():
-    # Tries each model in order until one works (duplicates removed)
-    names = [os.getenv("GEMINI_MODEL"), "gemini-3.8-flash", "gemini-flash-latest"]
+    names = [os.getenv("GEMINI_MODEL")] + FALLBACK_MODELS
     seen = []
     for n in names:
         if n and n not in seen:
