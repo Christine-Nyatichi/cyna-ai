@@ -51,7 +51,7 @@ def stats():
         or 0,
         "ai_replies": UsageLog.query.filter(
             UsageLog.created_at >= day_ago,
-            UsageLog.endpoint == "POST /api/chat",
+                        UsageLog.endpoint.in_(["POST /api/chat", "POST /api/chat/stream"]),
             UsageLog.status_code == 200,
         ).count(),
     }

@@ -180,9 +180,15 @@ async function sendMessage() {
   const reply = addMessage("assistant", "...");
   $("send-btn").disabled = true;
 
+  let answer = "";
+
   try {
-    const data = await api("/chat", {
+    const res = await fetch(API + "/chat/stream", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token,
+      },
       body: JSON.stringify({
         message: text,
         conversation_id: currentConversationId,
@@ -190,15 +196,56 @@ async function sendMessage() {
         document_id: $("doc-select").value || null,
       }),
     });
-    if (!currentConversationId) $("chat-title").textContent = text.slice(0, 50);
-    currentConversationId = data.conversation_id;
-    reply.textContent = data.reply.content;
-    loadConversations();
 
-    // Refresh the memory list if it is open (a "remember ..." message may have added one)
-    if (!$("memory-modal").classList.contains("hidden")) loadMemories();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        logout();
+        throw new Error("Session expired. Please log in again.");
+      }
+      throw new Error(data.error || data.msg || "Request failed");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finished = false;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop(); // keep the unfinished part for the next round
+
+      for (const raw of events) {
+        if (!raw.startsWith("data: ")) continue;
+        const event = JSON.parse(raw.slice(6));
+
+        if (event.type === "token") {
+          answer += event.text;
+          reply.textContent = answer;
+          $("messages").scrollTop = $("messages").scrollHeight;
+        } else if (event.type === "error") {
+          throw new Error(event.error);
+        } else if (event.type === "done") {
+          finished = true;
+          if (!currentConversationId) $("chat-title").textContent = text.slice(0, 50);
+          currentConversationId = event.conversation_id;
+          loadConversations();
+
+          // Refresh the memory list if it is open (a "remember ..." message may have added one)
+          if (!$("memory-modal").classList.contains("hidden")) loadMemories();
+        }
+      }
+    }
+
+    if (!finished) throw new Error("The reply was interrupted. Please try again.");
   } catch (err) {
-    reply.textContent = "Error: " + err.message;
+    reply.textContent = answer
+      ? answer + "\n\n[Error: " + err.message + "]"
+      : "Error: " + err.message;
   } finally {
     $("send-btn").disabled = false;
     input.focus();

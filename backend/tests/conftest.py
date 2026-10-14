@@ -20,14 +20,23 @@ def fake_ai(monkeypatch):
     """Replace the real AI with a fake one that records what it was given."""
     calls = {}
 
-    def fake_generate_reply(messages, mode="general", memories=None, document=None):
+    def record(messages, mode, memories, document):
         calls["messages"] = messages
         calls["mode"] = mode
         calls["memories"] = memories
         calls["document"] = document
+
+    def fake_generate_reply(messages, mode="general", memories=None, document=None):
+        record(messages, mode, memories, document)
         return "FAKE REPLY"
 
+    def fake_generate_reply_stream(messages, mode="general", memories=None, document=None):
+        record(messages, mode, memories, document)
+        yield "FAKE "
+        yield "REPLY"
+
     monkeypatch.setattr(chat_routes, "generate_reply", fake_generate_reply)
+    monkeypatch.setattr(chat_routes, "generate_reply_stream", fake_generate_reply_stream)
     return calls
 
 

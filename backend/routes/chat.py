@@ -1,9 +1,11 @@
-from flask import Blueprint, request, jsonify
+import json
+
+from flask import Blueprint, request, jsonify, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from extensions import db
-from models import Conversation, Message, Memory, Document, DocumentChunk
-from services.ai_service import generate_reply, AIServiceError
+from models import Conversation, Message, Memory, Document, DocumentChunk, utcnow
+from services.ai_service import generate_reply, generate_reply_stream, AIServiceError
 from services.document_service import select_context
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api")
@@ -40,57 +42,52 @@ def extract_memory(text):
     return None
 
 
-@chat_bp.route("/chat", methods=["POST"])
-@jwt_required()
-def chat():
-    data = request.get_json() or {}
+def prepare_chat(user_id, data):
+    """Checks a chat request and gathers everything the AI needs. Nothing is saved here.
+
+    The result holds only plain values (no database objects), so it is safe to use
+    later, while an answer is still streaming.
+
+    Returns (context, None) on success or (None, error_response) on failure.
+    """
     text = (data.get("message") or "").strip()
     conversation_id = data.get("conversation_id")
     document_id = data.get("document_id")
     mode = data.get("mode", "general")
 
     if not text:
-        return jsonify({"error": "message is required"}), 400
+        return None, (jsonify({"error": "message is required"}), 400)
     if mode not in VALID_MODES:
-        return jsonify({"error": "invalid mode"}), 400
+        return None, (jsonify({"error": "invalid mode"}), 400)
 
-    user_id = current_user_id()
-
-    # Optional: chat about an uploaded document
     doc = None
     if document_id:
         doc = Document.query.filter_by(id=document_id, user_id=user_id).first()
         if not doc:
-            return jsonify({"error": "document not found"}), 404
+            return None, (jsonify({"error": "document not found"}), 404)
 
+    conversation = None
+    history = []
     if conversation_id:
         conversation = Conversation.query.filter_by(id=conversation_id, user_id=user_id).first()
         if not conversation:
-            return jsonify({"error": "conversation not found"}), 404
-    else:
-        conversation = Conversation(user_id=user_id, title=text[:50], mode=mode)
-        db.session.add(conversation)
-        db.session.flush()
+            return None, (jsonify({"error": "conversation not found"}), 404)
+        history = [
+            {"role": m.role, "content": m.content}
+            for m in Message.query.filter_by(conversation_id=conversation.id).order_by(Message.id).all()
+        ]
+    history.append({"role": "user", "content": text})
 
-    db.session.add(Message(conversation_id=conversation.id, role="user", content=text))
-
-    # Save to memory if the user said "remember ..."
-    to_remember = extract_memory(text)
-    if (
-        to_remember
-        and len(to_remember) <= MAX_MEMORY_LENGTH
-        and Memory.query.filter_by(user_id=user_id).count() < MAX_MEMORIES
-    ):
-        db.session.add(Memory(user_id=user_id, content=to_remember))
-    db.session.flush()
-
-    history = [
-        {"role": m.role, "content": m.content}
-        for m in Message.query.filter_by(conversation_id=conversation.id).order_by(Message.id).all()
-    ]
     memories = [
         m.content for m in Memory.query.filter_by(user_id=user_id).order_by(Memory.id).all()
     ]
+
+    # "remember ..." messages add a memory, saved once the answer is complete
+    to_remember = extract_memory(text)
+    if to_remember and len(to_remember) <= MAX_MEMORY_LENGTH and len(memories) < MAX_MEMORIES:
+        memories.append(to_remember)
+    else:
+        to_remember = None
 
     document_context = None
     if doc:
@@ -102,17 +99,94 @@ def chat():
         ]
         document_context = {"name": doc.filename, "excerpts": select_context(chunks, text)}
 
-    try:
-        reply_text = generate_reply(history, conversation.mode, memories, document_context)
-    except AIServiceError as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 503
+    return {
+        "text": text,
+        "mode": conversation.mode if conversation else mode,
+        "conversation_id": conversation.id if conversation else None,
+        "history": history,
+        "memories": memories,
+        "to_remember": to_remember,
+        "document": document_context,
+    }, None
+
+
+def save_exchange(user_id, ctx, reply_text):
+    """Saves the user message, the AI reply and any new memory in one go."""
+    conversation = None
+    if ctx["conversation_id"]:
+        conversation = db.session.get(Conversation, ctx["conversation_id"])
+
+    if conversation is None:
+        conversation = Conversation(user_id=user_id, title=ctx["text"][:50], mode=ctx["mode"])
+        db.session.add(conversation)
+        db.session.flush()
+
+    db.session.add(Message(conversation_id=conversation.id, role="user", content=ctx["text"]))
+    if ctx["to_remember"]:
+        db.session.add(Memory(user_id=user_id, content=ctx["to_remember"]))
 
     reply = Message(conversation_id=conversation.id, role="assistant", content=reply_text)
     db.session.add(reply)
+    conversation.updated_at = utcnow()
     db.session.commit()
+    return conversation.id, reply.id
 
-    return jsonify({"conversation_id": conversation.id, "reply": serialize_message(reply)})
+
+def sse(payload):
+    return "data: " + json.dumps(payload) + "\n\n"
+
+
+@chat_bp.route("/chat", methods=["POST"])
+@jwt_required()
+def chat():
+    user_id = current_user_id()
+    ctx, error = prepare_chat(user_id, request.get_json() or {})
+    if error:
+        return error
+
+    try:
+        reply_text = generate_reply(ctx["history"], ctx["mode"], ctx["memories"], ctx["document"])
+    except AIServiceError as e:
+        return jsonify({"error": str(e)}), 503
+
+    conversation_id, reply_id = save_exchange(user_id, ctx, reply_text)
+    reply = db.session.get(Message, reply_id)
+    return jsonify({"conversation_id": conversation_id, "reply": serialize_message(reply)})
+
+
+@chat_bp.route("/chat/stream", methods=["POST"])
+@jwt_required()
+def chat_stream():
+    user_id = current_user_id()
+    ctx, error = prepare_chat(user_id, request.get_json() or {})
+    if error:
+        return error
+
+    def generate():
+        pieces = []
+        try:
+            for piece in generate_reply_stream(
+                ctx["history"], ctx["mode"], ctx["memories"], ctx["document"]
+            ):
+                pieces.append(piece)
+                yield sse({"type": "token", "text": piece})
+        except AIServiceError as e:
+            yield sse({"type": "error", "error": str(e)})
+            return
+
+        reply_text = "".join(pieces).strip()
+        if not reply_text:
+            yield sse({"type": "error", "error": "The AI returned an empty reply"})
+            return
+
+        conversation_id, reply_id = save_exchange(user_id, ctx, reply_text)
+        yield sse({"type": "done", "conversation_id": conversation_id, "message_id": reply_id})
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @chat_bp.route("/conversations", methods=["GET"])

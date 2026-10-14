@@ -62,8 +62,7 @@ def build_system_prompt(mode, memories, document):
     return prompt
 
 
-def generate_reply(messages, mode="general", memories=None, document=None):
-    """messages: list of {"role": "user" | "assistant", "content": "..."}"""
+def _build_request(messages, mode, memories, document):
     contents = []
     for m in messages[-MAX_HISTORY:]:
         role = "user" if m["role"] == "user" else "model"
@@ -72,6 +71,15 @@ def generate_reply(messages, mode="general", memories=None, document=None):
     config = types.GenerateContentConfig(
         system_instruction=build_system_prompt(mode, memories, document)
     )
+    return contents, config
+
+
+def generate_reply(messages, mode="general", memories=None, document=None):
+    """Returns the whole answer at once.
+
+    messages: list of {"role": "user" | "assistant", "content": "..."}
+    """
+    contents, config = _build_request(messages, mode, memories, document)
 
     client = _get_client()
     errors = []
@@ -84,6 +92,33 @@ def generate_reply(messages, mode="general", memories=None, document=None):
                 return response.text
             errors.append(f"{model}: empty response")
         except Exception as e:
+            errors.append(f"{model}: {str(e)[:120]}")
+
+    raise AIServiceError("AI request failed: " + " | ".join(errors))
+
+
+def generate_reply_stream(messages, mode="general", memories=None, document=None):
+    """Yields the answer piece by piece as the AI writes it."""
+    contents, config = _build_request(messages, mode, memories, document)
+
+    client = _get_client()
+    errors = []
+    for model in _models():
+        started = False
+        try:
+            for chunk in client.models.generate_content_stream(
+                model=model, contents=contents, config=config
+            ):
+                piece = chunk.text
+                if piece:
+                    started = True
+                    yield piece
+            if started:
+                return
+            errors.append(f"{model}: empty response")
+        except Exception as e:
+            if started:
+                raise AIServiceError("The reply was interrupted: " + str(e)[:120])
             errors.append(f"{model}: {str(e)[:120]}")
 
     raise AIServiceError("AI request failed: " + " | ".join(errors))
