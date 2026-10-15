@@ -119,7 +119,10 @@ async function openConversation(id) {
     $("chat-title").textContent = c.title;
     $("mode").value = c.mode;
     $("messages").innerHTML = "";
-    c.messages.forEach((m) => addMessage(m.role, m.content));
+    c.messages.forEach((m) => {
+      const bubble = addMessage(m.role, m.content);
+      if (m.role === "assistant") addMessageActions(bubble);
+    });
     loadConversations();
   } catch (err) {
     console.error(err);
@@ -170,10 +173,127 @@ function addMessage(role, text) {
   return div;
 }
 
+// The most recent real answer from CYNA (not the greeting or a status message)
+function lastAnswerBubble() {
+  const answers = document.querySelectorAll("#messages .msg.assistant[data-answer]");
+  return answers.length ? answers[answers.length - 1] : null;
+}
+
+// A title for the document: the first heading, or the topic you asked about
+function titleFor(bubble) {
+  const heading = bubble.textContent.match(/^#{1,3}\s+(.+)$/m);
+  if (heading) return heading[1].trim();
+
+  const asked = bubble.previousElementSibling;
+  if (asked && asked.classList.contains("user")) {
+    const about = asked.textContent.match(/\babout\s+(.+?)[.?!\s]*$/i);
+    if (about) return about[1].trim().slice(0, 60);
+  }
+  return "CYNA notes";
+}
+
+// Does this message ask for a PDF or Word file? Returns ["pdf"], ["docx"], both, or null.
+function fileRequest(text) {
+  const t = text.toLowerCase();
+  const wantsPdf = /\bpdf\b/.test(t);
+  const wantsWord = /\b(word|docx?)\b/.test(t);
+  if (!wantsPdf && !wantsWord) return null;
+
+  const hasVerb = /\b(turn|convert|make|save|export|download|put|change|create|give|send)\b/.test(t);
+  const refersBack = /\b(it|this|that|these|those|them|notes|answer)\b/.test(t);
+  const isShort = t.trim().split(/\s+/).length <= 6;
+  if (!hasVerb || !(refersBack || isShort)) return null;
+
+  const formats = [];
+  if (wantsPdf) formats.push("pdf");
+  if (wantsWord) formats.push("docx");
+  return formats;
+}
+
+// Makes the file(s) from CYNA's last answer. The server keeps the files and
+// saves your request and CYNA's "Done!" note in this chat.
+async function createFilesFromAnswer(bubble, formats, command) {
+  const label = formats.map((f) => (f === "pdf" ? "PDF" : "Word document")).join(" and ");
+  const status = addMessage("system", "Creating your " + label + "...");
+
+  try {
+    const data = await api("/notes/command", {
+      method: "POST",
+      body: JSON.stringify({
+        conversation_id: currentConversationId,
+        command,
+        notes: bubble.textContent,
+        title: titleFor(bubble),
+        formats,
+      }),
+    });
+
+    for (const file of data.files) {
+      await downloadStoredFile(file.id, file.filename);
+    }
+    status.textContent = data.message;
+    loadConversations();
+  } catch (err) {
+    status.textContent = "Sorry, I could not create the file: " + err.message;
+  }
+}
+
+// "Save as PDF" and "Save as Word" buttons under a CYNA answer
+function addMessageActions(bubble) {
+  bubble.dataset.answer = "1";
+
+  const bar = document.createElement("div");
+  bar.className = "msg-actions";
+
+  [["PDF", "pdf"], ["Word", "docx"]].forEach(([label, format]) => {
+    const btn = document.createElement("button");
+    btn.textContent = "Save as " + label;
+
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "Creating...";
+      try {
+        await downloadNotesFile({ title: titleFor(bubble), notes: bubble.textContent, format });
+      } catch (err) {
+        alert(err.message);
+      }
+      btn.textContent = "Save as " + label;
+      btn.disabled = false;
+    };
+
+    bar.appendChild(btn);
+  });
+
+  bubble.after(bar);
+  $("messages").scrollTop = $("messages").scrollHeight;
+}
+
 async function sendMessage() {
   const input = $("message-input");
   const text = input.value.trim();
   if (!text) return;
+
+  // "Turn it into a PDF / Word document": handled here, no AI needed
+  const formats = fileRequest(text);
+  if (formats) {
+    input.value = "";
+    addMessage("user", text);
+
+    const bubble = lastAnswerBubble();
+    if (!bubble || !currentConversationId) {
+      addMessage(
+        "system",
+        "I don't have any notes to turn into a file yet. Ask me to write some first, for example: Make notes about nouns."
+      );
+      return;
+    }
+
+    $("send-btn").disabled = true;
+    await createFilesFromAnswer(bubble, formats, text);
+    $("send-btn").disabled = false;
+    input.focus();
+    return;
+  }
 
   input.value = "";
   addMessage("user", text);
@@ -233,6 +353,7 @@ async function sendMessage() {
           finished = true;
           if (!currentConversationId) $("chat-title").textContent = text.slice(0, 50);
           currentConversationId = event.conversation_id;
+          addMessageActions(reply);
           loadConversations();
 
           // Refresh the memory list if it is open (a "remember ..." message may have added one)

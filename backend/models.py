@@ -20,6 +20,7 @@ class User(db.Model):
     documents = db.relationship("Document", backref="user", cascade="all, delete-orphan")
     tasks = db.relationship("Task", backref="user", cascade="all, delete-orphan")
     memories = db.relationship("Memory", backref="user", cascade="all, delete-orphan")
+    files = db.relationship("GeneratedFile", backref="user", cascade="all, delete-orphan")
 
 
 class Conversation(db.Model):
@@ -40,7 +41,7 @@ class Message(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # "user" or "assistant"
+    role = db.Column(db.String(20), nullable=False)  # "user", "assistant" or "system"
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow)
 
@@ -85,6 +86,20 @@ class Memory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+
+class GeneratedFile(db.Model):
+    """A PDF or Word file that CYNA created, kept so it can be downloaded again."""
+
+    __tablename__ = "generated_files"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    format = db.Column(db.String(10), nullable=False)  # "pdf" or "docx"
+    size = db.Column(db.Integer)
+    content = db.Column(db.LargeBinary(length=4000000), nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow)
 
 

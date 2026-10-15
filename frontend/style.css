@@ -170,3 +170,20 @@ input:focus, textarea:focus, select:focus { outline: 1px solid #4f7cff; }
 .admin-table th { text-align: left; color: #9aa0b4; font-weight: 600; padding: 6px 8px; }
 .admin-table td { padding: 7px 8px; border-top: 1px solid #2c3040; word-break: break-word; }
 .modal-head .logout { padding: 6px 12px; margin-right: 6px; }
+/* Notes popup */
+#notes-text { resize: vertical; min-height: 200px; line-height: 1.5; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #c8ccda; cursor: pointer; }
+.check input { width: auto; padding: 0; }
+.notes-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.notes-actions button:first-child { background: #2c3040; }
+/* Saved-file notes in the chat, and the My files list */
+.msg.system {
+  align-self: center;
+  background: transparent;
+  border: 1px dashed #2c3040;
+  color: #9aa0b4;
+  font-size: 13px;
+  max-width: 80%;
+}
+.file-btn { padding: 5px 12px; font-size: 12px; }
+.memory-item .doc-name small { display: block; margin: 2px 0 0; }

@@ -16,6 +16,8 @@ from routes.memory import memory_bp
 from routes.tasks import tasks_bp
 from routes.documents import documents_bp
 from routes.admin import admin_bp
+from routes.notes import notes_bp
+from routes.files import files_bp
 
 if not os.getenv("JWT_SECRET_KEY"):
     raise RuntimeError("JWT_SECRET_KEY is missing in .env")
@@ -38,6 +40,7 @@ JWTManager(app)
 # Extra limits for the expensive endpoints
 limiter.limit("60 per minute")(chat_bp)
 limiter.limit("20 per minute")(documents_bp)
+limiter.limit("20 per minute")(notes_bp)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
@@ -45,6 +48,8 @@ app.register_blueprint(memory_bp)
 app.register_blueprint(tasks_bp)
 app.register_blueprint(documents_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(notes_bp)
+app.register_blueprint(files_bp)
 
 with app.app_context():
     db.create_all()

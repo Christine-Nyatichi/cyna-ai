@@ -1,4 +1,5 @@
 import json
+import re
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -136,6 +137,41 @@ def sse(payload):
     return "data: " + json.dumps(payload) + "\n\n"
 
 
+def safe_filename(title):
+    name = re.sub(r"[^A-Za-z0-9_-]+", "-", title or "").strip("-")[:40]
+    return name or "conversation"
+
+
+def build_export(conversation, fmt):
+    """Turns a conversation into Markdown or plain text."""
+    exported = utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    messages = sorted(conversation.messages, key=lambda m: m.id)
+    lines = []
+
+    if fmt == "md":
+        lines += [
+            f"# {conversation.title}",
+            "",
+            f"*Mode: {conversation.mode} · Exported from CYNA AI on {exported}*",
+            "",
+        ]
+        for m in messages:
+            who = "You" if m.role == "user" else "CYNA"
+            lines += ["---", "", f"**{who}** · {m.created_at.strftime('%Y-%m-%d %H:%M')}", "", m.content, ""]
+    else:
+        lines += [
+            conversation.title,
+            f"Mode: {conversation.mode}",
+            f"Exported from CYNA AI on {exported}",
+            "",
+        ]
+        for m in messages:
+            who = "You" if m.role == "user" else "CYNA"
+            lines += [f"[{who}, {m.created_at.strftime('%Y-%m-%d %H:%M')}]", m.content, ""]
+
+    return "\n".join(lines)
+
+
 @chat_bp.route("/chat", methods=["POST"])
 @jwt_required()
 def chat():
@@ -209,6 +245,25 @@ def get_conversation(conversation_id):
     data = serialize_conversation(c)
     data["messages"] = [serialize_message(m) for m in c.messages]
     return jsonify(data)
+
+
+@chat_bp.route("/conversations/<int:conversation_id>/export", methods=["GET"])
+@jwt_required()
+def export_conversation(conversation_id):
+    c = Conversation.query.filter_by(id=conversation_id, user_id=current_user_id()).first()
+    if not c:
+        return jsonify({"error": "conversation not found"}), 404
+
+    fmt = request.args.get("format", "md")
+    if fmt not in ("md", "txt"):
+        return jsonify({"error": "format must be md or txt"}), 400
+
+    filename = f"{safe_filename(c.title)}.{fmt}"
+    return Response(
+        build_export(c, fmt),
+        mimetype="text/markdown" if fmt == "md" else "text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @chat_bp.route("/conversations/<int:conversation_id>", methods=["PATCH"])

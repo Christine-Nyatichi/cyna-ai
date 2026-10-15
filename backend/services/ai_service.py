@@ -14,13 +14,40 @@ SYSTEM_PROMPTS = {
     "research": "You are CYNA in Research mode. Give structured, balanced answers and say when you are unsure.",
     "writing": "You are CYNA in Writing mode. Help draft, edit and improve writing, matching the user's tone.",
     "data": "You are CYNA in Data Analysis mode. Help with data questions, statistics, SQL and Python analysis, showing your reasoning.",
+    "notes": (
+        "You turn rough notes into a clean, well-organized document. "
+        "Reply with the organized notes only, in Markdown: use # for the main heading, "
+        "## for sections, - for bullet points, and short paragraphs. "
+        "Keep every fact from the notes, fix spelling and grammar, and do not invent new information. "
+        "No introduction, no closing remarks, no code fences."
+    ),
+    "notes_writer": (
+        "You write clear, accurate study notes on the topic the user gives you. "
+        "Reply with the notes only, in Markdown: start with a # title, then ## sections such as "
+        "Definition, Key points, Types, Examples and Summary where they fit. "
+        "Use - bullet points and short paragraphs, and include examples. "
+        "Aim for about one page. No introduction, no closing remarks, no code fences."
+    ),
 }
+
+# These modes produce a document, so the chat-only hints below are left out
+NOTES_MODES = ("notes", "notes_writer")
+
+NOTES_BUTTON_HINT = (
+    "You cannot create files yourself, but this app can. Under each of your answers there are "
+    "Save as PDF and Save as Word buttons, and the user can also type something like "
+    "'turn it into a PDF' or 'make it a Word document' after you have written notes, and the app "
+    "will create the file from your last answer. If the user asks for a PDF or Word file, write the "
+    "notes in your answer and tell them they can ask for the file that way. "
+    "Never say that you are unable to help with this."
+)
 
 MAX_HISTORY = 20
 REQUEST_TIMEOUT_MS = 30000  # give up on a model that does not respond within 30 seconds
 
 # Tried in order. GEMINI_MODEL in .env goes first.
 FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash", "gemini-3.8-flash"]
+
 _client = None
 
 
@@ -55,7 +82,10 @@ def build_system_prompt(mode, memories, document):
             "\n\nThe user asked you to remember these things. "
             "Use them when relevant, and do not repeat them unless useful:\n" + notes
         )
-    prompt += "\n\nIf the user asks you to remember something, confirm briefly."
+
+    if mode not in NOTES_MODES:
+        prompt += "\n\nIf the user asks you to remember something, confirm briefly."
+        prompt += "\n\n" + NOTES_BUTTON_HINT
 
     if document:
         excerpts = "\n\n".join(document["excerpts"])

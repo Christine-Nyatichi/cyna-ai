@@ -32,6 +32,8 @@
       <input id="search" type="text" placeholder="Search chats">
       <div id="conversation-list"></div>
       <button id="admin-btn" class="logout hidden">Admin</button>
+      <button id="notes-btn" class="logout">Notes</button>
+      <button id="files-btn" class="logout">My files</button>
       <button id="doc-btn" class="logout">Documents</button>
       <button id="task-btn" class="logout">Tasks</button>
       <button id="memory-btn" class="logout">Memory</button>
@@ -42,6 +44,11 @@
       <header class="chat-header">
         <span id="chat-title">New chat</span>
         <div class="header-controls">
+          <select id="export-select" title="Download this chat">
+            <option value="">Export...</option>
+            <option value="md">Markdown (.md)</option>
+            <option value="txt">Text (.txt)</option>
+          </select>
           <select id="doc-select" title="Chat about a document">
             <option value="">No document</option>
           </select>
@@ -112,6 +119,39 @@
     </div>
   </div>
 
+  <!-- Notes popup -->
+  <div id="notes-modal" class="modal hidden">
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2>Notes to PDF or Word</h2>
+        <button id="notes-close" class="conv-del">×</button>
+      </div>
+      <p class="hint">Write or paste your notes. Use # for headings and - for bullet points. Tick the box to let CYNA tidy them up first.</p>
+      <input id="notes-title" type="text" placeholder="Document title" maxlength="120">
+      <textarea id="notes-text" rows="12" placeholder="Paste your notes here..."></textarea>
+      <label class="check">
+        <input id="notes-organize" type="checkbox">
+        Let CYNA organize my notes into clear headings and bullets
+      </label>
+      <div class="notes-actions">
+        <button id="notes-last">Use last answer</button>
+        <button id="notes-pdf">Download PDF</button>
+        <button id="notes-docx">Download Word</button>
+      </div>
+      <p id="notes-status" class="hint"></p>
+    </div>
+  </div>
+    <!-- My files popup -->
+  <div id="files-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>My files</h2>
+        <button id="files-close" class="conv-del">×</button>
+      </div>
+      <p class="hint">PDF and Word files CYNA made for you. Your newest 50 are kept.</p>
+      <div id="files-list"></div>
+    </div>
+  </div>
   <!-- Admin dashboard popup -->
   <div id="admin-modal" class="modal hidden">
     <div class="modal-card wide">
@@ -130,5 +170,8 @@
   <script src="tasks.js"></script>
   <script src="documents.js"></script>
   <script src="admin.js"></script>
+  <script src="export.js"></script>
+  <script src="notes.js"></script>
+  <script src="files.js"></script>
 </body>
 </html>

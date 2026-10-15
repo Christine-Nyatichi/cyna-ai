@@ -19,6 +19,7 @@ Hi, I'm Christine, a full-stack developer. I built CYNA AI end to end to show my
 - **Admin dashboard**: usage stats, errors and sign-ups, visible to admin accounts only
 - **Security**: password rules, rate limiting, input validation, usage logging and restricted CORS
 - **73 automated tests** with pytest
+- **My files**: every PDF or Word file CYNA creates is saved so you can download it again
 
 ![CYNA AI admin dashboard](docs/admin.png)
 
