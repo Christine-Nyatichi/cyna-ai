@@ -238,36 +238,10 @@ async function createFilesFromAnswer(bubble, formats, command) {
   }
 }
 
-// "Save as PDF" and "Save as Word" buttons under a CYNA answer
+// Marks a message as one of CYNA's real answers, so "turn it into a PDF" knows which one to use
 function addMessageActions(bubble) {
   bubble.dataset.answer = "1";
-
-  const bar = document.createElement("div");
-  bar.className = "msg-actions";
-
-  [["PDF", "pdf"], ["Word", "docx"]].forEach(([label, format]) => {
-    const btn = document.createElement("button");
-    btn.textContent = "Save as " + label;
-
-    btn.onclick = async () => {
-      btn.disabled = true;
-      btn.textContent = "Creating...";
-      try {
-        await downloadNotesFile({ title: titleFor(bubble), notes: bubble.textContent, format });
-      } catch (err) {
-        alert(err.message);
-      }
-      btn.textContent = "Save as " + label;
-      btn.disabled = false;
-    };
-
-    bar.appendChild(btn);
-  });
-
-  bubble.after(bar);
-  $("messages").scrollTop = $("messages").scrollHeight;
 }
-
 async function sendMessage() {
   const input = $("message-input");
   const text = input.value.trim();

@@ -63,10 +63,38 @@
         </div>
       </header>
       <div id="messages" class="messages"></div>
-      <div class="input-bar">
-        <textarea id="message-input" rows="1" placeholder="Message CYNA..."></textarea>
-        <button id="send-btn">Send</button>
-      </div>
+      
+<div class="input-bar">
+    <textarea id="message-input" rows="1" placeholder="Message CYNA..."></textarea>
+
+    <button id="mic-btn" class="icon-btn mic-icon"
+            title="Speak your message" aria-label="Speak your message">
+        <svg viewBox="0 0 24 24" width="23" height="23"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+            <path d="M5 10a7 7 0 0 0 14 0"></path>
+            <path d="M12 17v5M8 22h8"></path>
+        </svg>
+    </button>
+
+    <button id="voice-mode-btn" class="voice-mode-btn"
+            title="Listen to CYNA's last answer" aria-label="Listen to CYNA">
+        <svg viewBox="0 0 24 24" width="25" height="25"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10v4M7 6v12M11 3v18M15 7v10M19 9v6M22 11v2"></path>
+        </svg>
+    </button>
+
+    <button id="send-btn" class="send-icon-btn hidden"
+            title="Send message" aria-label="Send message">
+        ➤
+    </button>
+</div>
+
+<p id="voice-status" class="voice-status"></p>
+
     </main>
   </div>
 
@@ -173,5 +201,6 @@
   <script src="export.js"></script>
   <script src="notes.js"></script>
   <script src="files.js"></script>
+  <script src="voice.js"></script>
 </body>
 </html>
